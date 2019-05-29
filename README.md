@@ -113,7 +113,7 @@ Make sure to wrap it with a parent element you can latch your vue instance into.
 
 ```html
 <div id="people">
-  <v-client-resizable-table :data="tableData" :columns="columns" :options="options"></v-client-resizable-table>
+  <v-client-table :data="tableData" :columns="columns" :options="options"></v-client-table>
 </div>
 ```
 
@@ -185,7 +185,7 @@ groupMeta:[
 
 ```html
 <div id="people">
-  <v-server-resizable-table url="/people" :columns="columns" :options="options"></v-server-resizable-table>
+  <v-server-table url="/people" :columns="columns" :options="options"></v-server-table>
 </div>
 ```
 
@@ -260,9 +260,9 @@ Templates allow you to wrap your cells with vue-compiled HTML. It can be used in
 If you are using Vue 2.1.0 and above, you can use [scoped slots](https://vuejs.org/v2/guide/components.html#Scoped-Slots) to create templates:
 
 ```vue
-<v-client-resizable-table :data="entries" :columns="['id', 'name' ,'age', 'edit']">
+<v-clienttable :data="entries" :columns="['id', 'name' ,'age', 'edit']">
       <a slot="edit" slot-scope="props" class="fa fa-edit" :href="edit(props.row.id)"></a>
-</v-client-resizable-table>
+</v-clienttable>
 ```
 
 Note: You can get the index of the current row relative to the entire data set using `props.index`
@@ -471,7 +471,7 @@ Get properties off your instance using the [`ref`](http://vuejs.org/api/#ref) at
 Using Custom Events (For child-parent communication):
 
 ```html
-<v-server-resizable-table :columns="columns" url="/getData" @loaded="onLoaded"></v-server-resizable-table>
+<v-servertable :columns="columns" url="/getData" @loaded="onLoaded"></v-servertable>
 ```
 
 * Using the event bus:
