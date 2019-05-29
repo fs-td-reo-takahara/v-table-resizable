@@ -817,4 +817,4 @@ Credit for the main codebase is to [Matanya's Vue Table 2](https://github.com/ma
 
 ### License
 
-React is [MIT licensed](./LICENSE).
+Component is [MIT licensed](./LICENSE).
