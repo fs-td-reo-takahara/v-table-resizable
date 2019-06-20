@@ -16,6 +16,12 @@ exports.default = {
         var table = nodeName === 'TABLE' ? el : el.parentElement;
         var thead = table.querySelector('thead');
         var ths = thead.querySelectorAll('th');
+        var prevX = 0;
+        var movementX = 0;
+        function mousemove(e) {
+          movementX = prevX ? e.screenX - prevX : 0;
+          prevX = e.screenX;
+        }
 
         var resizeContainer = document.createElement('div');
         table.style.position = 'relative';
@@ -97,15 +103,16 @@ exports.default = {
             var nextTh = ths[movingIndex + 1];
             var bar = bars[movingIndex];
             var trs = table.querySelectorAll("tr");
+            mousemove(e);
             trs.forEach(function (tr, index) {
               if (index !== 0 && tr) {
                 var td = tr.cells[movingIndex];
                 var nextTd = tr.cells[movingIndex + 1];
                 if (td) {
-                  td.style.width = cutPx(th.style.width) + e.movementX + 'px';
+                  td.style.width = cutPx(th.style.width) + (e.movementX ? e.movementX : movementX) + 'px';
                 }
                 if (nextTd) {
-                  nextTd.style.width = cutPx(nextTh.style.width) - e.movementX + 'px';
+                  nextTd.style.width = cutPx(nextTh.style.width) - (e.movementX ? e.movementX : movementX) + 'px';
                 }
               }
             });
@@ -113,6 +120,7 @@ exports.default = {
             nextTh.style.width = cutPx(nextTh.style.width) - e.movementX + 'px';
             bar.style.height = (rOpt === 'th' ? th.offsetHeight : table.offsetHeight) + 'px';
             bar.style.left = nextTh.offsetLeft - 4 + e.movementX + 'px';
+            doResize();
           }
         };
 
