@@ -37,7 +37,11 @@ exports.install = function (Vue, globalOptions, useVuex) {
   var theme = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'bootstrap3';
   var template = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 'default';
 
-  Vue.use(_resizable2.default);
+  var options = {};
+  function getOptions() {
+    return options;
+  }
+  Vue.use(_resizable2.default, getOptions);
   var client = _merge2.default.recursive(true, (0, _table2.default)(), {
     name: 'client-table',
     components: {
@@ -67,9 +71,8 @@ exports.install = function (Vue, globalOptions, useVuex) {
     },
 
     created: function created() {
-
       _created(this);
-
+      options = this.options;
       if (this.opts.toMomentFormat) this.transformDateStringsToMoment();
 
       if (!this.vuex) {
@@ -83,7 +86,6 @@ exports.install = function (Vue, globalOptions, useVuex) {
     },
 
     mounted: function mounted() {
-
       this._setColumnsDropdownCloseListener();
 
       if (!this.vuex) {

@@ -38,7 +38,11 @@ exports.install = function (Vue, globalOptions, useVuex) {
   var template = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 'default';
 
   var state = useVuex ? (0, _vuex2.default)('server') : (0, _normal2.default)();
-  Vue.use(_resizable2.default);
+  var options = {};
+  function getOptions() {
+    return options;
+  }
+  Vue.use(_resizable2.default, getOptions);
   var server = _merge2.default.recursive(true, (0, _table2.default)(), {
     name: 'server-table',
     components: {
@@ -72,7 +76,7 @@ exports.install = function (Vue, globalOptions, useVuex) {
       }
 
       _created(this);
-
+      options = this.options;
       if (!this.vuex) {
         this.query = this.initQuery();
         this.initOrderBy();

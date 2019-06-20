@@ -655,7 +655,10 @@ process.umask = function() { return 0; };
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
+/* WEBPACK VAR INJECTION */(function(process) {// .dirname, .basename, and .extname methods are extracted from Node.js v8.11.1,
+// backported and transplited with Babel, with backwards-compat fixes
+
+// Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
@@ -705,14 +708,6 @@ function normalizeArray(parts, allowAboveRoot) {
 
   return parts;
 }
-
-// Split a filename into [root, dir, basename, ext], unix version
-// 'root' is just a slash, or nothing.
-var splitPathRe =
-    /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
-var splitPath = function(filename) {
-  return splitPathRe.exec(filename).slice(1);
-};
 
 // path.resolve([from ...], to)
 // posix version
@@ -829,37 +824,120 @@ exports.relative = function(from, to) {
 exports.sep = '/';
 exports.delimiter = ':';
 
-exports.dirname = function(path) {
-  var result = splitPath(path),
-      root = result[0],
-      dir = result[1];
-
-  if (!root && !dir) {
-    // No dirname whatsoever
-    return '.';
+exports.dirname = function (path) {
+  if (typeof path !== 'string') path = path + '';
+  if (path.length === 0) return '.';
+  var code = path.charCodeAt(0);
+  var hasRoot = code === 47 /*/*/;
+  var end = -1;
+  var matchedSlash = true;
+  for (var i = path.length - 1; i >= 1; --i) {
+    code = path.charCodeAt(i);
+    if (code === 47 /*/*/) {
+        if (!matchedSlash) {
+          end = i;
+          break;
+        }
+      } else {
+      // We saw the first non-path separator
+      matchedSlash = false;
+    }
   }
 
-  if (dir) {
-    // It has a dirname, strip trailing slash
-    dir = dir.substr(0, dir.length - 1);
+  if (end === -1) return hasRoot ? '/' : '.';
+  if (hasRoot && end === 1) {
+    // return '//';
+    // Backwards-compat fix:
+    return '/';
   }
-
-  return root + dir;
+  return path.slice(0, end);
 };
 
+function basename(path) {
+  if (typeof path !== 'string') path = path + '';
 
-exports.basename = function(path, ext) {
-  var f = splitPath(path)[2];
-  // TODO: make this comparison case-insensitive on windows?
+  var start = 0;
+  var end = -1;
+  var matchedSlash = true;
+  var i;
+
+  for (i = path.length - 1; i >= 0; --i) {
+    if (path.charCodeAt(i) === 47 /*/*/) {
+        // If we reached a path separator that was not part of a set of path
+        // separators at the end of the string, stop now
+        if (!matchedSlash) {
+          start = i + 1;
+          break;
+        }
+      } else if (end === -1) {
+      // We saw the first non-path separator, mark this as the end of our
+      // path component
+      matchedSlash = false;
+      end = i + 1;
+    }
+  }
+
+  if (end === -1) return '';
+  return path.slice(start, end);
+}
+
+// Uses a mixed approach for backwards-compatibility, as ext behavior changed
+// in new Node.js versions, so only basename() above is backported here
+exports.basename = function (path, ext) {
+  var f = basename(path);
   if (ext && f.substr(-1 * ext.length) === ext) {
     f = f.substr(0, f.length - ext.length);
   }
   return f;
 };
 
+exports.extname = function (path) {
+  if (typeof path !== 'string') path = path + '';
+  var startDot = -1;
+  var startPart = 0;
+  var end = -1;
+  var matchedSlash = true;
+  // Track the state of characters (if any) we see before our first dot and
+  // after any path separator we find
+  var preDotState = 0;
+  for (var i = path.length - 1; i >= 0; --i) {
+    var code = path.charCodeAt(i);
+    if (code === 47 /*/*/) {
+        // If we reached a path separator that was not part of a set of path
+        // separators at the end of the string, stop now
+        if (!matchedSlash) {
+          startPart = i + 1;
+          break;
+        }
+        continue;
+      }
+    if (end === -1) {
+      // We saw the first non-path separator, mark this as the end of our
+      // extension
+      matchedSlash = false;
+      end = i + 1;
+    }
+    if (code === 46 /*.*/) {
+        // If this is our first dot, mark it as the start of our extension
+        if (startDot === -1)
+          startDot = i;
+        else if (preDotState !== 1)
+          preDotState = 1;
+    } else if (startDot !== -1) {
+      // We saw a non-dot and non-path separator before our dot, so we should
+      // have a good chance at having a non-empty extension
+      preDotState = -1;
+    }
+  }
 
-exports.extname = function(path) {
-  return splitPath(path)[3];
+  if (startDot === -1 || end === -1 ||
+      // We saw a non-dot character immediately before the dot
+      preDotState === 0 ||
+      // The (right-most) trimmed path component is exactly '..'
+      preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+    return '';
+  }
+  return path.slice(startDot, end);
 };
 
 function filter (xs, f) {
@@ -3226,18 +3304,18 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.default = {
-  install: function install(Vue) {
+  install: function install(Vue, getOptions) {
     Vue.directive('resizable', {
       inserted: function inserted(el) {
+        var options = getOptions();
         var nodeName = el.nodeName;
-        var rOpt = el.dataset.rOpt;
+        var rOpt = options.resizable;
         if (['table', 'th'].indexOf(rOpt) < 0) return;
         if (['TABLE', 'THEAD'].indexOf(nodeName) < 0) return;
 
         var table = nodeName === 'TABLE' ? el : el.parentElement;
         var thead = table.querySelector('thead');
         var ths = thead.querySelectorAll('th');
-        var barHeight = rOpt === 'th' ? thead.offsetHeight : table.offsetHeight;
 
         var resizeContainer = document.createElement('div');
         table.style.position = 'relative';
@@ -3248,33 +3326,55 @@ exports.default = {
 
         var moving = false;
         var movingIndex = 0;
+        var doResize = function doResize() {
+          var resizeContainer = document.getElementsByClassName("vue-columns-resizable")[0];
+          while (resizeContainer.firstChild) {
+            resizeContainer.removeChild(resizeContainer.firstChild);
+          }
+          ths.forEach(function (th, index) {
+            var trs = table.querySelectorAll("tr");
+            trs.forEach(function (tr, i) {
+              if (i !== 0 && tr) {
+                var td = tr.cells[index];
+                if (td) {
+                  td.style.width = th.offsetWidth + 'px';
+                }
+              }
+            });
+            th.style.width = th.offsetWidth + 'px';
 
-        ths.forEach(function (th, index) {
-          th.style.width = th.offsetWidth + 'px';
+            if (index + 1 >= ths.length) return;
 
-          if (index + 1 >= ths.length) return;
+            var nextTh = ths[index + 1];
+            var bar = document.createElement('div');
+            var barHeight = rOpt === 'th' ? th.offsetHeight : table.offsetHeight;
+            bar.style.position = 'absolute';
+            bar.style.left = nextTh.offsetLeft - 4 + 'px';
+            bar.style.top = 0;
+            bar.style.height = barHeight + 'px';
+            bar.style.width = '8px';
+            bar.style.cursor = 'col-resize';
+            bar.style.zIndex = 1;
+            bar.className = 'columns-resize-bar';
 
-          var nextTh = ths[index + 1];
-          var bar = document.createElement('div');
+            bar.addEventListener('mousedown', function () {
+              moving = true;
+              movingIndex = index;
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+            });
 
-          bar.style.position = 'absolute';
-          bar.style.left = nextTh.offsetLeft - 4 + 'px';
-          bar.style.top = 0;
-          bar.style.height = barHeight + 'px';
-          bar.style.width = '8px';
-          bar.style.cursor = 'col-resize';
-          bar.style.zIndex = 1;
-          bar.className = 'columns-resize-bar';
-
-          bar.addEventListener('mousedown', function () {
-            moving = true;
-            movingIndex = index;
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
+            resizeContainer.appendChild(bar);
           });
-
-          resizeContainer.appendChild(bar);
-        });
+        };
+        doResize();
+        if (options.addResizeCallback) {
+          if (typeof options.addResizeCallback === 'function') {
+            options.addResizeCallback(doResize);
+          } else {
+            options.addResizeCallback(function () {});
+          }
+        }
 
         var bars = resizeContainer.querySelectorAll('.columns-resize-bar');
 
@@ -3284,13 +3384,7 @@ exports.default = {
           moving = false;
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
-
-          bars.forEach(function (bar, index) {
-            var th = ths[index];
-            var nextTh = ths[index + 1];
-            th.style.width = th.offsetWidth + 'px';
-            bar.style.left = nextTh.offsetLeft - 4 + 'px';
-          });
+          doResize();
         });
 
         var cutPx = function cutPx(str) {
@@ -3302,8 +3396,22 @@ exports.default = {
             var th = ths[movingIndex];
             var nextTh = ths[movingIndex + 1];
             var bar = bars[movingIndex];
+            var trs = table.querySelectorAll("tr");
+            trs.forEach(function (tr, index) {
+              if (index !== 0 && tr) {
+                var td = tr.cells[movingIndex];
+                var nextTd = tr.cells[movingIndex + 1];
+                if (td) {
+                  td.style.width = cutPx(th.style.width) + e.movementX + 'px';
+                }
+                if (nextTd) {
+                  nextTd.style.width = cutPx(nextTh.style.width) - e.movementX + 'px';
+                }
+              }
+            });
             th.style.width = cutPx(th.style.width) + e.movementX + 'px';
             nextTh.style.width = cutPx(nextTh.style.width) - e.movementX + 'px';
+            bar.style.height = (rOpt === 'th' ? th.offsetHeight : table.offsetHeight) + 'px';
             bar.style.left = nextTh.offsetLeft - 4 + e.movementX + 'px';
           }
         };
@@ -3724,7 +3832,11 @@ exports.install = function (Vue, globalOptions, useVuex) {
   var theme = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'bootstrap3';
   var template = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 'default';
 
-  Vue.use(_resizable2.default);
+  var options = {};
+  function getOptions() {
+    return options;
+  }
+  Vue.use(_resizable2.default, getOptions);
   var client = _merge2.default.recursive(true, (0, _table2.default)(), {
     name: 'client-table',
     components: {
@@ -3754,9 +3866,8 @@ exports.install = function (Vue, globalOptions, useVuex) {
     },
 
     created: function created() {
-
       _created(this);
-
+      options = this.options;
       if (this.opts.toMomentFormat) this.transformDateStringsToMoment();
 
       if (!this.vuex) {
@@ -3770,7 +3881,6 @@ exports.install = function (Vue, globalOptions, useVuex) {
     },
 
     mounted: function mounted() {
-
       this._setColumnsDropdownCloseListener();
 
       if (!this.vuex) {
@@ -12515,7 +12625,11 @@ exports.install = function (Vue, globalOptions, useVuex) {
   var template = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 'default';
 
   var state = useVuex ? (0, _vuex2.default)('server') : (0, _normal2.default)();
-  Vue.use(_resizable2.default);
+  var options = {};
+  function getOptions() {
+    return options;
+  }
+  Vue.use(_resizable2.default, getOptions);
   var server = _merge2.default.recursive(true, (0, _table2.default)(), {
     name: 'server-table',
     components: {
@@ -12549,7 +12663,7 @@ exports.install = function (Vue, globalOptions, useVuex) {
       }
 
       _created(this);
-
+      options = this.options;
       if (!this.vuex) {
         this.query = this.initQuery();
         this.initOrderBy();
